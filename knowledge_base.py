@@ -3,6 +3,7 @@ from transformers import AutoTokenizer
 import numpy as np
 import faiss
 import json
+import os
 
 """
 
@@ -14,8 +15,8 @@ tokenizer = AutoTokenizer.from_pretrained(
     "intfloat/multilingual-e5-base"
 )
 
-class index:
-    def __init__(self, text_size, text_overlap, faiss_index=None, meta=None) -> None:
+class Index:
+    def __init__(self, text_size:int, text_overlap:int, faiss_index=None, meta=None) -> None:
         self.text_size = text_size
         self.text_overlap = text_overlap
 
@@ -24,21 +25,22 @@ class index:
         self.meta:list[dict] = meta or []
 
     def add_pdf(self, pdf_path):
+        print(f"Adding PDF from {pdf_path}")
         text = load_pdf(pdf_path)
-        tokens = tokenizer(text)
-        chunks = chunk_tokens(tokens, self.text_size, self.text_overlap)
-
+        tokens = tokenizer(text)["input_ids"]
         embed_list = []
         # iterate over chunks and embed
             # Save embed and metadata
-        for idx, chunk in enumerate(chunks):
-            vec = embed_text(chunk)
+        for idx, chunk in enumerate(gen_split_overlap(tokens, self.text_size, self.text_overlap)):
+            chunk_text = tokenizer.decode(chunk)
+            
+            vec = embed_text(chunk_text)
             embed_list.append(np.array(vec, dtype=np.float32).reshape(1, -1))
 
             self.meta.append({
                 "source": pdf_path,
                 "chunk_id": idx,
-                "text": tokenizer.decode(chunk)
+                "text": chunk_text
             })
         
         xb = np.vstack(embed_list)
@@ -58,6 +60,22 @@ class index:
         with open("faiss_meta.json", 'w') as f:
             for item in self.meta:
                 f.write(json.dumps(item) + "\n")
+
+    def add_directory(self, dir:str, recursive:bool=False):
+        
+        print(f"Adding directory:{dir} | Recursive:{recursive}")
+        directory = os.fsencode(dir)
+
+        for file in os.listdir(directory):
+            if recursive and os.path.isdir(file):
+                self.add_directory(os.fsdecode(file), recursive=True)
+
+            filename = os.fsdecode(file)
+            if filename.endswith(".pdf"):
+                self.add_pdf(os.path.join(dir, filename))
+            else: 
+                print(f"Unkown File Format... Skipping {filename}")
+                continue
 
     def search_faiss(self,search_text:str):
         # embed text and formate to float32
@@ -81,7 +99,6 @@ def load_pdf(pdf_path:str):
         pdf_text += page.extract_text()
     return pdf_text
 
-# TODO: This should be rewritten for token-level chunk use instead of character level.
 def gen_split_overlap(seq, size, overlap):
     if size < 1 or overlap < 0:
         raise ValueError('size must be >= 1 and overlap >= 0')
@@ -90,26 +107,6 @@ def gen_split_overlap(seq, size, overlap):
     for i in range(0, len(seq) - overlap, size - overlap):
         yield seq[i:i + size]
 
-def chunk_text(text:str, size:int, overlap:int):
-    chunks:list[str] = []
-    if size < 1 or overlap < 0:
-        raise ValueError('size must be >= 1 and overlap >= 0')
-    
-    for i in range(0, len(text) - overlap, size-overlap):
-        chunks.append(text[i:i+size])
-
-    return chunks
-
-def chunk_tokens(tokens, size:int, overlap:int):
-    chunks:list=[]
-    if size > 1 or overlap < 0:
-        raise ValueError('size must be >= 1 and overlap >= 0')
-    
-    for i in range(0, len(tokens) - overlap, size-overlap):
-        chunks.append(tokens[i:i+size])
-
-    return chunks
-
 def embed_text(text:str):
     embedding = model.encode(text)
     return embedding
@@ -117,6 +114,13 @@ def embed_text(text:str):
 
 def main():
     print("Starting Knowledgebase testing \n")
+    pdf_dir = "PDFs"
+
+    print("Creating index with text_size 500 and text_overlap of 100")
+    index = Index(500, 100)
+    index.add_directory(pdf_dir)
+
+
 
 
 if __name__ == "__main__":
