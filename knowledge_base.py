@@ -36,7 +36,10 @@ class Index:
                           "chunks": []}
 
 
-    def save(self, path):
+    def save(self, path:str):
+
+        os.makedirs(path, exist_ok=True)
+
         # Write faiss to storage
         if self.faiss_index is not None:
             faiss.write_index(self.faiss_index, os.path.join(path, "faiss_index.faiss"))
@@ -46,7 +49,7 @@ class Index:
             f.write(json.dumps(self.meta))
 
     @classmethod
-    def from_path(cls, path):
+    def from_path(cls, path:str):
         # Load meta info
         with open(os.path.join(path,"faiss_meta.json"), 'r') as f:
             meta = json.load(f)
@@ -77,7 +80,9 @@ class Index:
             chunk_text = self.tokenizer.decode(chunk)
             
             vec = self.embed_text(chunk_text)
-            embed_list.append(np.array(vec, dtype=np.float32).reshape(1, -1))
+            vec = np.array(vec, dtype=np.float32).reshape(1, -1)
+            faiss.normalize_L2(vec)
+            embed_list.append(vec)
 
             self.meta["chunks"].append({
                 "source": pdf_path,
@@ -90,7 +95,7 @@ class Index:
         # Creates a faiss if there is not already one
         if self.faiss_index is None:
             d = xb.shape[1]
-            self.faiss_index = faiss.IndexFlatL2(d)
+            self.faiss_index = faiss.IndexFlatIP(d)
 
         # Adds embeds to faiss
         self.faiss_index.add(xb)
@@ -101,14 +106,14 @@ class Index:
         directory = os.fsencode(dir)
 
         for file in os.listdir(directory):
-            if recursive and os.path.isdir(file):
-                self.add_directory(os.fsdecode(file), recursive=True)
+            file = os.fsdecode(file)
+            if recursive and os.path.isdir(os.path.join(dir, file)):
+                self.add_directory(file, recursive=True)
 
-            filename = os.fsdecode(file)
-            if filename.endswith(".pdf"):
-                self.add_pdf(os.path.join(dir, filename))
+            if file.endswith(".pdf"):
+                self.add_pdf(os.path.join(dir, file))
             else: 
-                print(f"Unkown File Format... Skipping {filename}")
+                print(f"Unkown File Format... Skipping {file}")
                 continue
 
     def search_faiss(self,search_text:str):
@@ -143,16 +148,44 @@ def gen_split_overlap(seq, size, overlap):
 def main():
     print("Starting Knowledgebase testing \n")
     pdf_dir = "PDFs"
+    save_dir = "test"
 
     print("Creating index with text_size 500 and text_overlap of 100")
     index = Index(text_size=500,
                   text_overlap=100,
                   model_id="intfloat/multilingual-e5-base"
                   )
+    
+    print(f"Adding directory {pdf_dir} to index")
     index.add_directory(pdf_dir)
 
+    print(f"Saving index to {save_dir}")
+    index.save(save_dir)
+
+    found_files = os.listdir(os.fsencode(save_dir))
+    print(f"Files found in {save_dir}:")
+    if found_files:
+        for file in found_files:
+            filename = os.fsdecode(file)
+            print(f"File found: {filename}")
+    else:
+        print(f"No files found in {save_dir}")
+
+    print(f"Loading index from {save_dir}")
+    del index
+    index = Index.from_path(save_dir)
 
 
+    query = "Hvordan beskrives AI til offentlige myndigheder?"
+    print(f"searching faiss with query: {query}")
+    dist, id = index.search_faiss(query)
+    print(f"search found: id {id[0]} with distance {dist[0]}")
+    
+    top_id = id[0][0]
+    content = index.meta["chunks"][top_id]["text"]
+    print(f"Content of found chunk: {content}")
+
+    print(f"Test Complete")
 
 if __name__ == "__main__":
     main()
