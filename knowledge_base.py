@@ -119,15 +119,24 @@ class Index:
                     continue
             print(f"Finished adding directory: {directory}")
 
-    def search_faiss(self,search_text:str):
+    def search_index(self, search_text:str):
         # embed text and formate to float32
         q = self.embed_text(search_text)
         q = np.array(q, dtype=np.float32).reshape(1, -1)
         faiss.normalize_L2(q)
         # if a faiss exists return distances and indeces for the 5 nearest neighbours
         if self.faiss_index is not None:
-            dist, index = self.faiss_index.search(q, k=5)
-            return dist, index
+            found_list = []
+            dists, indices = self.faiss_index.search(q, k=5)
+            for dist, index in zip(dists[0], indices[0]):
+                print(f"[DEBUG] dist:{dist} index:{index}")
+                found = {"index": index,
+                         "distance": dist,
+                         "source":self.meta["chunks"][index]["source"],
+                         "content":self.meta["chunks"][index]["text"]
+                         }
+                found_list.append(found)
+            return found_list
         else:
             raise RuntimeError("No Faiss index to search in")
 
@@ -181,14 +190,9 @@ def main():
 
     query = "Hvordan beskrives AI til offentlige myndigheder?"
     print(f"searching faiss with query: {query}")
-    dist, id = index.search_faiss(query)
-    print(f"search found: id {id[0]} with distance {dist[0]}")
-    
-    top_id = id[0][0]
-    content_source = index.meta["chunks"][top_id]["source"]
-    content = index.meta["chunks"][top_id]["text"]
-    print(f"Chunk found from: {content_source}")
-    print(f"Content of found chunk: {content}")
+    results = index.search_index(query)
+    for id, result in enumerate(results):
+        print(f"Result: Rank {id} | {result}")
 
     print(f"Test Complete")
 
