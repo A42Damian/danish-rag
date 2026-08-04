@@ -77,6 +77,7 @@ class Index:
         # iterate over chunks and embed
             # Save embed and metadata
         for idx, chunk in enumerate(gen_split_overlap(tokens, self.text_size, self.text_overlap)):
+            print(f"[DEBUG] Chunk Length is {len(chunk)}")
             chunk_text = self.tokenizer.decode(chunk)
             
             vec = self.embed_text(chunk_text)
@@ -106,15 +107,17 @@ class Index:
         directory = os.fsencode(dir)
 
         for file in os.listdir(directory):
+            print(f"Adding file: {file}")
             file = os.fsdecode(file)
             if recursive and os.path.isdir(os.path.join(dir, file)):
                 self.add_directory(file, recursive=True)
-
-            if file.endswith(".pdf"):
-                self.add_pdf(os.path.join(dir, file))
-            else: 
-                print(f"Unkown File Format... Skipping {file}")
-                continue
+            else:
+                if file.endswith(".pdf"):
+                    self.add_pdf(os.path.join(dir, file))
+                else: 
+                    print(f"Unkown File Format... Skipping {file}")
+                    continue
+            print(f"Finished adding directory: {directory}")
 
     def search_faiss(self,search_text:str):
         # embed text and formate to float32
@@ -147,12 +150,12 @@ def gen_split_overlap(seq, size, overlap):
 
 def main():
     print("Starting Knowledgebase testing \n")
-    pdf_dir = "PDFs"
+    pdf_dir = "PDFs\Digitaliseringsstyrelsen"
     save_dir = "test"
 
     print("Creating index with text_size 500 and text_overlap of 100")
-    index = Index(text_size=500,
-                  text_overlap=100,
+    index = Index(text_size=400,
+                  text_overlap=80,
                   model_id="intfloat/multilingual-e5-base"
                   )
     
@@ -182,7 +185,9 @@ def main():
     print(f"search found: id {id[0]} with distance {dist[0]}")
     
     top_id = id[0][0]
+    content_source = index.meta["chunks"][top_id]["source"]
     content = index.meta["chunks"][top_id]["text"]
+    print(f"Chunk found from: {content_source}")
     print(f"Content of found chunk: {content}")
 
     print(f"Test Complete")
