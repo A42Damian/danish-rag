@@ -10,15 +10,7 @@ class Retriever:
         self.kb_index = kb_index
 
     def retrieve(self, question:str):
-        found = self.kb_index.search_index(question)
-        additional_context = ""
-        for find in found:
-            try:
-                content = find['content']
-                print(f"[Debug] Retrieved content: {content}")
-                additional_context = f"{additional_context} + {content} + \n"
-            except:
-                print(f"[Error] Problem with retrieved content... Skipping")
-                continue
+        found = self.kb_index.search_index(question, self.top_k)
+        additional_context = found
 
         return additional_context

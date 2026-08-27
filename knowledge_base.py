@@ -119,7 +119,7 @@ class Index:
                     continue
             print(f"Finished adding directory: {directory}")
 
-    def search_index(self, search_text:str):
+    def search_index(self, search_text:str, top_k = 1):
         # embed text and formate to float32
         q = self.embed_text(search_text)
         q = np.array(q, dtype=np.float32).reshape(1, -1)
@@ -127,7 +127,7 @@ class Index:
         # if a faiss exists return distances and indeces for the 5 nearest neighbours
         if self.faiss_index is not None:
             found_list = []
-            dists, indices = self.faiss_index.search(q, k=5)
+            dists, indices = self.faiss_index.search(q, k=top_k)
             for dist, index in zip(dists[0], indices[0]):
                 print(f"[DEBUG] dist:{dist} index:{index}")
                 found = {"index": index,
