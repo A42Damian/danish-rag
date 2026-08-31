@@ -77,7 +77,6 @@ class Index:
         # iterate over chunks and embed
             # Save embed and metadata
         for idx, chunk in enumerate(gen_split_overlap(tokens, self.text_size, self.text_overlap)):
-            print(f"[DEBUG] Chunk Length is {len(chunk)}")
             chunk_text = self.tokenizer.decode(chunk)
             
             vec = self.embed_text(chunk_text)
@@ -129,7 +128,6 @@ class Index:
             found_list = []
             dists, indices = self.faiss_index.search(q, k=top_k)
             for dist, index in zip(dists[0], indices[0]):
-                print(f"[DEBUG] dist:{dist} index:{index}")
                 found = {"index": index,
                          "distance": dist,
                          "source":self.meta["chunks"][index]["source"],
