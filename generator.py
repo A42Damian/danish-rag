@@ -7,7 +7,7 @@ class Generator:
                  ) -> None:
         
         self.model_id = model_id
-        self.model = AutoModelForCausalLM.from_pretrained("danish-foundation-models/DFM-Mimir", device_map="auto")
+        self.model = AutoModelForCausalLM.from_pretrained(self.model_id, device_map="auto")
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
 
     def generate(self, question, retrieved):
@@ -57,3 +57,23 @@ class Generator:
         )
 
         return answer
+
+def main():
+    print("Starting generator testing")
+
+    model_id = "danish-foundation-models/DFM-Mimir"
+    print(f"Loading model from ID: {model_id}")
+    generator = Generator(model_id=model_id)
+
+    question = "What are you?"
+    retrieved = [{
+        "content": "You are a model used for a Retrieval Augmented Generator system."
+    }]
+
+    print(f"Generating for question: {question}")
+    print(f"Retrieved: {retrieved}")
+    answer = generator.generate(question, retrieved=retrieved)
+    print(f"Answer is: \n {answer}")
+
+if __name__ == "__main__":
+    main()
