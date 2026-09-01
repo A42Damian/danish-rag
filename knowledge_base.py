@@ -157,7 +157,7 @@ def gen_split_overlap(seq, size, overlap):
 
 def main():
     print("Starting Knowledgebase testing \n")
-    pdf_dir = "PDFs\Digitaliseringsstyrelsen"
+    pdf_dir = r"PDFs\Digitaliseringsstyrelsen"
     save_dir = "test"
 
     print("Creating index with text_size 500 and text_overlap of 100")

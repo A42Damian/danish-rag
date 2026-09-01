@@ -18,4 +18,28 @@ class RetrievalAugmentedGenerator:
     def answer_q(self, question):
         retrieved = self.retriever.retrieve(question)
         answer = self.generator.generate(question, retrieved)
-        return answer
+
+        sources = ""
+        for i, result in enumerate(retrieved, start=1):
+            sources += (
+                f"Source {i}:\n"
+                f"{result['content']}\n\n"
+            )
+
+        return answer, sources
+
+
+def main():
+    print(f"Starting test of Retrieval Arugmented Generator")
+    kb_dir = "test"
+    model_id = "danish-foundation-models/DFM-Mimir"
+    num_sources = 3
+    rag = RetrievalAugmentedGenerator(faiss_path=kb_dir, model_id=model_id, num_sources=num_sources)
+    question = "Hvordan beskrives AI til offentlige myndigheder?"
+    print(f"Asking question: {question}")
+    answer, sources = rag.answer_q(question)
+    print(f"Answer: \n {answer}")
+    print(f"Sources: \n {sources}")
+
+if __name__ == "__main__":
+    main()

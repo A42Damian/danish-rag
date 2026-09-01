@@ -45,7 +45,7 @@ class Generator:
             return_dict=True,
             return_tensors="pt",
         ).to(self.model.device)
-
+        
         outputs = self.model.generate(
             **inputs,
             max_new_tokens=200
