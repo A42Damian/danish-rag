@@ -35,11 +35,25 @@ def main():
     model_id = "danish-foundation-models/DFM-Mimir"
     num_sources = 3
     rag = RetrievalAugmentedGenerator(faiss_path=kb_dir, model_id=model_id, num_sources=num_sources)
+
     question = "Hvordan beskrives AI til offentlige myndigheder?"
     print(f"Asking question: {question}")
     answer, sources = rag.answer_q(question)
     print(f"Answer: \n {answer}")
     print(f"Sources: \n {sources}")
+
+    question = "Hvad er forskellen på beskrivelsen af AI til offentlige myndigheder i forhold til borgere?"
+    print(f"Asking question: {question}")
+    answer, sources = rag.answer_q(question)
+    print(f"Answer: \n {answer}")
+    print(f"Sources: \n {sources}")
+
+    question = "Hvad er den bedste AI model at bruge?"
+    print(f"Asking question: {question}")
+    answer, sources = rag.answer_q(question)
+    print(f"Answer: \n {answer}")
+    print(f"Sources: \n {sources}")
+
 
 if __name__ == "__main__":
     main()

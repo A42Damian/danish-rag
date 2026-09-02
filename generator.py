@@ -65,11 +65,21 @@ def main():
     print(f"Loading model from ID: {model_id}")
     generator = Generator(model_id=model_id)
 
+    print(f"Testing usage of given context")
     question = "What are you?"
     retrieved = [{
         "content": "You are a model used for a Retrieval Augmented Generator system."
     }]
+    print(f"Generating for question: {question}")
+    print(f"Retrieved: {retrieved}")
+    answer = generator.generate(question, retrieved=retrieved)
+    print(f"Answer is: \n {answer}")
 
+    print(f"Testing no context")
+    question = "What are you?"
+    retrieved = [{
+        "content": ""
+    }]
     print(f"Generating for question: {question}")
     print(f"Retrieved: {retrieved}")
     answer = generator.generate(question, retrieved=retrieved)
