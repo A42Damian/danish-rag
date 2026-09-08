@@ -5,6 +5,8 @@ import faiss
 import json
 import os
 
+from document_loaders import pdf_loaders
+
 """
 Knowledge base based on faiss index for a simple RAG system.
 """
@@ -108,8 +110,9 @@ class Index:
         for file in os.listdir(directory):
             print(f"Adding file: {file}")
             file = os.fsdecode(file)
-            if recursive and os.path.isdir(os.path.join(dir, file)):
-                self.add_directory(file, recursive=True)
+            path = os.path.join(dir, file)
+            if recursive and os.path.isdir(path):
+                self.add_directory(path, recursive=True)
             else:
                 if file.endswith(".pdf"):
                     self.add_pdf(os.path.join(dir, file))
@@ -118,7 +121,7 @@ class Index:
                     continue
             print(f"Finished adding directory: {directory}")
 
-    def search_index(self, search_text:str, top_k = 1):
+    def search_index(self, search_text:str, top_k:int):
         # embed text and formate to float32
         q = self.embed_text(search_text)
         q = np.array(q, dtype=np.float32).reshape(1, -1)
@@ -155,6 +158,34 @@ def gen_split_overlap(seq, size, overlap):
     for i in range(0, len(seq) - overlap, size - overlap):
         yield seq[i:i + size]
 
+def recursive_split(text: str, separators: list[str], max_size: int, tokenizer=None) -> list[str]:
+
+    def size_of(s: str) -> int:
+        if tokenizer is not None:
+            return len(tokenizer(s)["input_ids"])
+        return len(s.split(" "))
+
+    # Base case 1: already fits, nothing more to do
+    if size_of(text) <= max_size:
+        return [text]
+
+    # Base case 2: out of separators, fall back to a hard cut
+    if not separators:
+        words = text.split(" ")
+        return [" ".join(words[i:i + max_size]) for i in range(0, len(words), max_size)]
+
+    # Recursive case: split on the first separator, recurse on remainder for oversized pieces
+    sep, rest = separators[0], separators[1:]
+    chunks = []
+    for piece in text.split(sep):
+        if not piece:
+            continue
+        if size_of(piece) <= max_size:
+            chunks.append(piece)
+        else:
+            chunks.extend(recursive_split(piece, rest, max_size, tokenizer))
+    return chunks
+                
 def main():
     print("Starting Knowledgebase testing \n")
     pdf_dir = r"PDFs\Digitaliseringsstyrelsen"
@@ -188,7 +219,7 @@ def main():
 
     query = "Hvordan beskrives AI til offentlige myndigheder?"
     print(f"searching faiss with query: {query}")
-    results = index.search_index(query)
+    results = index.search_index(query, 1)
     for id, result in enumerate(results):
         print(f"Result: Rank {id} | {result}")
 
