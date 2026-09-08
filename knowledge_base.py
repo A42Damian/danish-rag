@@ -4,8 +4,14 @@ import numpy as np
 import faiss
 import json
 import os
+from typing import Any, Dict
 
 from document_loaders import pdf_loaders
+
+from docling.document_converter import DocumentConverter
+from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
+
+
 
 """
 Knowledge base based on faiss index for a simple RAG system.
@@ -29,6 +35,7 @@ class Index:
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_id
         )
+        self.converter = DocumentConverter()
 
         self.faiss_index = None
 
@@ -71,17 +78,30 @@ class Index:
         embedding = self.model.encode(text)
         return embedding
 
+    def extract_chunk_metadata(self, chunk) -> Dict[str, Any]:
+        metadata = {
+            "text": chunk.text,
+            "headings": [],
+            "page_info": None,
+            "content_type": None
+        }
+        return metadata
+
     def add_pdf(self, pdf_path):
         print(f"Adding PDF from {pdf_path}")
-        text = load_pdf(pdf_path)
-        tokens = self.tokenizer(text)["input_ids"]
+        result = self.converter.convert(pdf_path)
+        doc = result.document
+
+        chunker = HybridChunker(tokenizer=self.tokenizer)
+
+        chunks = list(chunker.chunk(doc))
+
         embed_list = []
-        # iterate over chunks and embed
-            # Save embed and metadata
-        for idx, chunk in enumerate(gen_split_overlap(tokens, self.text_size, self.text_overlap)):
-            chunk_text = self.tokenizer.decode(chunk)
-            
-            vec = self.embed_text(chunk_text)
+
+        for idx, chunk in enumerate(chunks):
+            chunk_md = self.extract_chunk_metadata(chunk)
+
+            vec = self.embed_text(chunk_md["text"])
             vec = np.array(vec, dtype=np.float32).reshape(1, -1)
             faiss.normalize_L2(vec)
             embed_list.append(vec)
@@ -89,7 +109,10 @@ class Index:
             self.meta["chunks"].append({
                 "source": pdf_path,
                 "chunk_id": idx,
-                "text": chunk_text
+                "text": chunk_md["text"],
+                "headings": json.dumps(chunk_md['headings']),
+                "page_info": chunk_md["page_info"],
+                "content_type": chunk_md["content_type"]
             })
         
         xb = np.vstack(embed_list)
@@ -140,51 +163,6 @@ class Index:
             return found_list
         else:
             raise RuntimeError("No Faiss index to search in")
-
-def load_pdf(pdf_path:str):
-    from pypdf import PdfReader
-    #Loads PDF as a string of text
-    reader = PdfReader(pdf_path)
-    pdf_text:str = ""
-    for page in reader.pages:
-        pdf_text += page.extract_text()
-    return pdf_text
-
-def gen_split_overlap(seq, size, overlap):
-    if size < 1 or overlap < 0:
-        raise ValueError('size must be >= 1 and overlap >= 0')
-
-    # Yields a generator with a len and overlap
-    for i in range(0, len(seq) - overlap, size - overlap):
-        yield seq[i:i + size]
-
-def recursive_split(text: str, separators: list[str], max_size: int, tokenizer=None) -> list[str]:
-
-    def size_of(s: str) -> int:
-        if tokenizer is not None:
-            return len(tokenizer(s)["input_ids"])
-        return len(s.split(" "))
-
-    # Base case 1: already fits, nothing more to do
-    if size_of(text) <= max_size:
-        return [text]
-
-    # Base case 2: out of separators, fall back to a hard cut
-    if not separators:
-        words = text.split(" ")
-        return [" ".join(words[i:i + max_size]) for i in range(0, len(words), max_size)]
-
-    # Recursive case: split on the first separator, recurse on remainder for oversized pieces
-    sep, rest = separators[0], separators[1:]
-    chunks = []
-    for piece in text.split(sep):
-        if not piece:
-            continue
-        if size_of(piece) <= max_size:
-            chunks.append(piece)
-        else:
-            chunks.extend(recursive_split(piece, rest, max_size, tokenizer))
-    return chunks
                 
 def main():
     print("Starting Knowledgebase testing \n")
