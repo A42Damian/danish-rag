@@ -1,4 +1,4 @@
-from knowledge_base import Index
+from index import Index
 
 class Retriever:
     def __init__(self,
@@ -14,6 +14,7 @@ class Retriever:
         additional_context = found
 
         return additional_context
+
 
 
 def main():
